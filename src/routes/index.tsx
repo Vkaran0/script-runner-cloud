@@ -376,6 +376,56 @@ function Dashboard() {
   );
 }
 
+const INTERVAL_PRESETS = [
+  { minutes: 1, label: "1 min" },
+  { minutes: 5, label: "5 min" },
+  { minutes: 10, label: "10 min" },
+  { minutes: 30, label: "30 min" },
+  { minutes: 60, label: "1 hour" },
+  { minutes: 360, label: "6 hours" },
+  { minutes: 1440, label: "24 hours" },
+];
+
+function formatCountdown(ms: number) {
+  if (ms <= 0) return "any moment";
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${sec}s`;
+  return `${sec}s`;
+}
+
+function CustomInterval({
+  current,
+  onApply,
+}: {
+  current: number;
+  onApply: (m: number) => Promise<void> | void;
+}) {
+  const [val, setVal] = useState(String(current));
+  useEffect(() => setVal(String(current)), [current]);
+  return (
+    <div className="flex items-center gap-2">
+      <Input
+        type="number"
+        min={1}
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        className="w-24 h-9"
+      />
+      <Button
+        size="sm"
+        variant="secondary"
+        onClick={() => onApply(Math.max(1, Math.floor(Number(val) || 1)))}
+      >
+        Set custom
+      </Button>
+    </div>
+  );
+}
+
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md border border-border p-3">
