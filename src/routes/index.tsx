@@ -61,6 +61,7 @@ function Dashboard() {
 
   const jobsQ = useQuery({
     queryKey: ["jobs"],
+    refetchInterval: 15000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("jobs")
