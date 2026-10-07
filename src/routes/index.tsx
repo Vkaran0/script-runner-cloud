@@ -244,6 +244,82 @@ function Dashboard() {
                 </div>
               </div>
 
+              <div
+                className={`rounded-md border p-3 flex flex-wrap items-center gap-3 ${
+                  selected.paused
+                    ? "border-border bg-muted/40"
+                    : "border-green-500/40 bg-green-500/10"
+                }`}
+              >
+                <span
+                  className={`inline-flex items-center gap-2 text-sm font-medium ${
+                    selected.paused ? "text-muted-foreground" : "text-green-600"
+                  }`}
+                >
+                  <span
+                    className={`h-2 w-2 rounded-full ${
+                      selected.paused ? "bg-muted-foreground" : "bg-green-500 animate-pulse"
+                    }`}
+                  />
+                  {selected.paused ? "Paused — schedule stopped" : "Active — running in the cloud"}
+                </span>
+                {!selected.paused && selected.next_run_at && (
+                  <span className="text-sm">
+                    Next run at{" "}
+                    <strong>{new Date(selected.next_run_at).toLocaleString()}</strong>{" "}
+                    <span className="text-muted-foreground">
+                      (in {formatCountdown(new Date(selected.next_run_at).getTime() - now)})
+                    </span>
+                  </span>
+                )}
+              </div>
+
+              <div className="rounded-md border border-border p-3 space-y-2">
+                <div className="text-xs text-muted-foreground">
+                  Interval — currently every {selected.interval_minutes} min
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {INTERVAL_PRESETS.map((p) => (
+                    <Button
+                      key={p.minutes}
+                      size="sm"
+                      variant={selected.interval_minutes === p.minutes ? "default" : "outline"}
+                      onClick={async () => {
+                        await persistJob({
+                          data: {
+                            id: selected.id,
+                            name: selected.name,
+                            url: selected.url,
+                            script: selected.script,
+                            interval_minutes: p.minutes,
+                          },
+                        });
+                        qc.invalidateQueries({ queryKey: ["jobs"] });
+                        toast.success(`Interval set to ${p.label}`);
+                      }}
+                    >
+                      {p.label}
+                    </Button>
+                  ))}
+                  <CustomInterval
+                    current={selected.interval_minutes}
+                    onApply={async (m) => {
+                      await persistJob({
+                        data: {
+                          id: selected.id,
+                          name: selected.name,
+                          url: selected.url,
+                          script: selected.script,
+                          interval_minutes: m,
+                        },
+                      });
+                      qc.invalidateQueries({ queryKey: ["jobs"] });
+                      toast.success(`Interval set to ${m} min`);
+                    }}
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                 <Stat label="Interval" value={`${selected.interval_minutes} min`} />
                 <Stat
