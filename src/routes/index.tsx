@@ -75,6 +75,7 @@ function Dashboard() {
   const runsQ = useQuery({
     queryKey: ["runs", selectedId],
     enabled: !!selectedId,
+    refetchInterval: 10000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("runs")
