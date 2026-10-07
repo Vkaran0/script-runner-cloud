@@ -61,6 +61,7 @@ function Dashboard() {
 
   const jobsQ = useQuery({
     queryKey: ["jobs"],
+    refetchInterval: 15000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("jobs")
@@ -74,6 +75,7 @@ function Dashboard() {
   const runsQ = useQuery({
     queryKey: ["runs", selectedId],
     enabled: !!selectedId,
+    refetchInterval: 10000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("runs")
@@ -121,6 +123,14 @@ function Dashboard() {
   const runNow = useServerFn(runJobNow);
   const togglePause = useServerFn(setJobPaused);
   const removeJob = useServerFn(deleteJob);
+  const persistJob = useServerFn(saveJob);
+
+  // ticking clock so the countdown stays live
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, []);
 
   const handleRun = async (id: string) => {
     toast.info("Running...");
@@ -234,6 +244,82 @@ function Dashboard() {
                 </div>
               </div>
 
+              <div
+                className={`rounded-md border p-3 flex flex-wrap items-center gap-3 ${
+                  selected.paused
+                    ? "border-border bg-muted/40"
+                    : "border-green-500/40 bg-green-500/10"
+                }`}
+              >
+                <span
+                  className={`inline-flex items-center gap-2 text-sm font-medium ${
+                    selected.paused ? "text-muted-foreground" : "text-green-600"
+                  }`}
+                >
+                  <span
+                    className={`h-2 w-2 rounded-full ${
+                      selected.paused ? "bg-muted-foreground" : "bg-green-500 animate-pulse"
+                    }`}
+                  />
+                  {selected.paused ? "Paused — schedule stopped" : "Active — running in the cloud"}
+                </span>
+                {!selected.paused && selected.next_run_at && (
+                  <span className="text-sm">
+                    Next run at{" "}
+                    <strong>{new Date(selected.next_run_at).toLocaleString()}</strong>{" "}
+                    <span className="text-muted-foreground">
+                      (in {formatCountdown(new Date(selected.next_run_at).getTime() - now)})
+                    </span>
+                  </span>
+                )}
+              </div>
+
+              <div className="rounded-md border border-border p-3 space-y-2">
+                <div className="text-xs text-muted-foreground">
+                  Interval — currently every {selected.interval_minutes} min
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {INTERVAL_PRESETS.map((p) => (
+                    <Button
+                      key={p.minutes}
+                      size="sm"
+                      variant={selected.interval_minutes === p.minutes ? "default" : "outline"}
+                      onClick={async () => {
+                        await persistJob({
+                          data: {
+                            id: selected.id,
+                            name: selected.name,
+                            url: selected.url,
+                            script: selected.script,
+                            interval_minutes: p.minutes,
+                          },
+                        });
+                        qc.invalidateQueries({ queryKey: ["jobs"] });
+                        toast.success(`Interval set to ${p.label}`);
+                      }}
+                    >
+                      {p.label}
+                    </Button>
+                  ))}
+                  <CustomInterval
+                    current={selected.interval_minutes}
+                    onApply={async (m) => {
+                      await persistJob({
+                        data: {
+                          id: selected.id,
+                          name: selected.name,
+                          url: selected.url,
+                          script: selected.script,
+                          interval_minutes: m,
+                        },
+                      });
+                      qc.invalidateQueries({ queryKey: ["jobs"] });
+                      toast.success(`Interval set to ${m} min`);
+                    }}
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                 <Stat label="Interval" value={`${selected.interval_minutes} min`} />
                 <Stat
@@ -286,6 +372,56 @@ function Dashboard() {
         }}
         job={editing}
       />
+    </div>
+  );
+}
+
+const INTERVAL_PRESETS = [
+  { minutes: 1, label: "1 min" },
+  { minutes: 5, label: "5 min" },
+  { minutes: 10, label: "10 min" },
+  { minutes: 30, label: "30 min" },
+  { minutes: 60, label: "1 hour" },
+  { minutes: 360, label: "6 hours" },
+  { minutes: 1440, label: "24 hours" },
+];
+
+function formatCountdown(ms: number) {
+  if (ms <= 0) return "any moment";
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${sec}s`;
+  return `${sec}s`;
+}
+
+function CustomInterval({
+  current,
+  onApply,
+}: {
+  current: number;
+  onApply: (m: number) => Promise<void> | void;
+}) {
+  const [val, setVal] = useState(String(current));
+  useEffect(() => setVal(String(current)), [current]);
+  return (
+    <div className="flex items-center gap-2">
+      <Input
+        type="number"
+        min={1}
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        className="w-24 h-9"
+      />
+      <Button
+        size="sm"
+        variant="secondary"
+        onClick={() => onApply(Math.max(1, Math.floor(Number(val) || 1)))}
+      >
+        Set custom
+      </Button>
     </div>
   );
 }
