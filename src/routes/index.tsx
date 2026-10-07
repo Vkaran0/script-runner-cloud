@@ -121,6 +121,14 @@ function Dashboard() {
   const runNow = useServerFn(runJobNow);
   const togglePause = useServerFn(setJobPaused);
   const removeJob = useServerFn(deleteJob);
+  const persistJob = useServerFn(saveJob);
+
+  // ticking clock so the countdown stays live
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, []);
 
   const handleRun = async (id: string) => {
     toast.info("Running...");
