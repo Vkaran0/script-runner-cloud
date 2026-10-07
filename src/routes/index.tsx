@@ -109,7 +109,7 @@ function Dashboard() {
 
   useEffect(() => {
     if (!selectedId && jobsQ.data && jobsQ.data.length > 0) {
-      setSelectedId(jobsQ.data[0].id);
+      setSelectedId(jobsQ.data[0]!.id);
     }
   }, [jobsQ.data, selectedId]);
 
@@ -365,15 +365,20 @@ function JobDialog({
 
   const submit = async () => {
     try {
-      await persist({
-        data: {
-          id: job?.id,
-          name,
-          url,
-          script,
-          interval_minutes: Math.max(1, Math.floor(interval)),
-        },
-      });
+      const payload: {
+        id?: string;
+        name: string;
+        url: string;
+        script: string;
+        interval_minutes: number;
+      } = {
+        name,
+        url,
+        script,
+        interval_minutes: Math.max(1, Math.floor(interval)),
+      };
+      if (job?.id) payload.id = job.id;
+      await persist({ data: payload });
       toast.success(job ? "Updated" : "Created");
       onClose();
     } catch (e) {
