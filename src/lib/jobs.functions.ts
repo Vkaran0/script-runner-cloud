@@ -55,7 +55,10 @@ async function executeScript(script: string, timeoutMs = 60000): Promise<{
     .constructor as new (...args: string[]) => (...args: unknown[]) => Promise<unknown>;
 
   try {
-    const fn = new AsyncFunction("console", "fetch", script);
+    // Wrap in eval so top-level IIFE promises (e.g. `(async () => {...})();`)
+    // are returned and awaited instead of fire-and-forget.
+    const wrapped = `return await eval(${JSON.stringify(script)});`;
+    const fn = new AsyncFunction("console", "fetch", wrapped);
     const execPromise = Promise.resolve(fn(fakeConsole, fetch));
     const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error(`Script timed out after ${timeoutMs}ms`)), timeoutMs),
